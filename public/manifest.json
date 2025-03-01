@@ -6,5 +6,11 @@
     "action": {
       "default_popup": "index.html"
     },
-    "permissions": []
+    "permissions": [],
+    "content_scripts" : [
+        {
+            "matches": ["https://canvas.oregonstate.edu/*"],
+            "js": ["src/content.js"]
+        }
+    ]
 }

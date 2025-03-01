@@ -10,7 +10,7 @@
     "content_scripts" : [
         {
             "matches": ["https://canvas.oregonstate.edu/*"],
-            "js": ["src/content.js"]
+            "js": ["content.js"]
         }
     ]
 }

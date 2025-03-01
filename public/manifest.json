@@ -9,7 +9,7 @@
     "permissions": [],
     "content_scripts" : [
         {
-            "matches": ["https://canvas.oregonstate.edu/*"],
+            "matches": ["https://canvas.oregonstate.edu/"],
             "js": ["content.js"]
         }
     ]

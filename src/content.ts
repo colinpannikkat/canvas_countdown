@@ -78,8 +78,25 @@ async function fetchAndParseICS(ics_url: string): Promise<Record<string, { Date:
     }
 }
 
-const usr_ics_url = "https://canvas.oregonstate.edu/feeds/calendars/user_Isd3z5yGcoNDhxfzoUWCXliURkw5V1sm7mT5SV5l.ics";
+function getUsrID(): string | null {
+    const feed_obj: HTMLAnchorElement | null = document.querySelector('[title="User Atom Feed (All Courses)"]');
+    const feed_str: string | null = feed_obj ? feed_obj.href : null;
+    if (feed_str) {
+        return feed_str.split("users/")[1].split(".atom")[0]
+    }
+    return null
+}
 
-fetchAndParseICS(usr_ics_url).then(ics_data => {
-    console.log(ics_data);
-});
+const usr_feed_id: string | null = getUsrID();
+let usr_ics_url: string | null = null;
+if (usr_feed_id) {
+    usr_ics_url = `https://canvas.oregonstate.edu/feeds/calendars/${usr_feed_id}.ics`;
+}
+
+if (usr_ics_url) {
+    fetchAndParseICS(usr_ics_url).then(ics_data => {
+        console.log(ics_data);
+    });
+} else {
+    console.error("Cannot retrieve the ICS calendar feed url automatically.");
+}

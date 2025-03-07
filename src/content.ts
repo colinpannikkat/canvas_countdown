@@ -1,3 +1,5 @@
+console.log("Extension script running...");
+
 class ICSParser {
     /**
      * Takes in ics file and outputs it into dictionary format
@@ -87,16 +89,83 @@ function getUsrID(): string | null {
     return null
 }
 
-const usr_feed_id: string | null = getUsrID();
-let usr_ics_url: string | null = null;
-if (usr_feed_id) {
-    usr_ics_url = `https://canvas.oregonstate.edu/feeds/calendars/${usr_feed_id}.ics`;
+// Creates a new countdown div and adds it below the dashboard header
+function addCountdownElement() {
+    console.log("Adding countdown element...");
+    
+    // Find the dashboard header layout
+    const dashboardHeader = document.querySelector(".ic-Dashboard-header__layout");
+    
+    if (dashboardHeader) {
+        console.log("Dashboard header found, adding countdown...");
+        
+        // Create a new div for the countdown
+        const countdownDiv = document.createElement("div");
+        countdownDiv.className = "countdown-container";
+        countdownDiv.style.fontSize = "32px";
+        countdownDiv.style.fontWeight = "bold";
+        countdownDiv.style.padding = "20px 0";
+        countdownDiv.style.textAlign = "center";
+        countdownDiv.textContent = "COUNTDOWN";
+        countdownDiv.style.backgroundColor = "white";
+        
+        // Insert after the dashboard header
+        dashboardHeader.parentNode?.insertBefore(countdownDiv, dashboardHeader.nextSibling);
+        return true;
+    } else {
+        console.log("Dashboard header not found");
+        return false;
+    }
 }
 
-if (usr_ics_url) {
-    fetchAndParseICS(usr_ics_url).then(ics_data => {
-        console.log(ics_data);
+function observeDOMChanges() {
+    console.log("Setting up DOM observer...");
+    
+    const observer = new MutationObserver((mutations, obs) => {
+        console.log("DOM changes detected:", mutations.length);
+
+        if (addCountdownElement()) {
+            obs.disconnect();  
+            console.log("Observer disconnected after adding countdown.");
+        }
     });
+
+    observer.observe(document.body, { 
+        childList: true, 
+        subtree: true,
+        characterData: true,
+        attributes: true
+    });
+}
+
+
+async function main() {
+    console.log("Main function running...");
+    
+    // Set up the observer for future changes
+    observeDOMChanges();
+    
+    // Fetch and parse ICS
+    console.log("Fetching ICS data...");
+    const usr_feed_id: string | null = getUsrID();
+    let usr_ics_url: string | null = null;
+    if (usr_feed_id) {
+        usr_ics_url = `https://canvas.oregonstate.edu/feeds/calendars/${usr_feed_id}.ics`;
+    }
+
+    if (usr_ics_url) {
+        fetchAndParseICS(usr_ics_url).then(ics_data => {
+            console.log("Parsed ICS data:", ics_data);
+        });
+    } else {
+        console.error("Cannot retrieve the ICS calendar feed url automatically.");
+    }
+}
+
+// Run when the page loads
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", main);
 } else {
-    console.error("Cannot retrieve the ICS calendar feed url automatically.");
+    // If the DOM is already loaded, run immediately
+    main();
 }

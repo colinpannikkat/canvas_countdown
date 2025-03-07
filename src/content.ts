@@ -15,24 +15,29 @@ class ICSParser {
      */
     parse(text: string | void): Record<string, { Date: string | null, Class: string }> {
         if (text == null) {
-            return {}
+            return {};
         }
         const textArray = text.split("BEGIN:VEVENT");
         const event: Record<string, { Date: string | null, Class: string }> = {};
-
+    
         for (const item of textArray) {
+            // Only process assignments
+            if (!item.includes("UID:event-assignment-")) {
+                continue;
+            }
+    
             if (item.includes('SUMMARY:')) {
                 let assignmentName = item.split("SUMMARY:")[1].split('URL;')[0];
                 const [className, cleanAssignmentName] = this.getSplitString(assignmentName, "[", " (");
                 assignmentName = cleanAssignmentName;
                 let date: string | null = null;
-
+    
                 if (item.includes('DTSTART;')) {
                     date = this.cleanString(item.split("VALUE=DATE:")[1].split("CLASS:")[0], "\r", "\n");
                 } else if (item.includes('DTSTART:')) {
                     date = this.cleanString(item.split("DTSTART:")[1].split("DTEND:")[0], "\r", "\n");
                 }
-
+    
                 event[assignmentName] = {
                     Date: date,
                     Class: className
@@ -41,6 +46,7 @@ class ICSParser {
         }
         return event;
     }
+    
 
     cleanString(string: string, ...args: string[]): string {
         for (const str of args) {

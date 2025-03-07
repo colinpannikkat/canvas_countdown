@@ -1,16 +1,18 @@
 {
     "manifest_version": 3,
-    "name": "React Chrome Extension",
+    "name": "Canvas Countdown",
     "version": "1.0.0",
-    "description": "A simple React app as a Chrome extension",
+    "description": "Modifies the Canvas dashboard and processes ICS data",
     "action": {
       "default_popup": "index.html"
     },
-    "permissions": [],
-    "content_scripts" : [
+    "permissions": ["scripting", "activeTab"],
+    "host_permissions": ["https://canvas.oregonstate.edu/*"],
+    "content_scripts": [
         {
-            "matches": ["https://canvas.oregonstate.edu/"],
-            "js": ["content.js"]
+            "matches": ["https://canvas.oregonstate.edu/*"],
+            "js": ["content.js"],
+            "run_at": "document_idle"
         }
     ]
 }

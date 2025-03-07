@@ -89,62 +89,98 @@ function getUsrID(): string | null {
     return null
 }
 
-// Creates a new countdown div and adds it below the dashboard header
-function addCountdownElement() {
-    console.log("Adding countdown element...");
-    
-    // Find the dashboard header layout
-    const dashboardHeader = document.querySelector(".ic-Dashboard-header__layout");
-    
-    if (dashboardHeader) {
-        console.log("Dashboard header found, adding countdown...");
-        
-        // Create a new div for the countdown
-        const countdownDiv = document.createElement("div");
-        countdownDiv.className = "countdown-container";
-        countdownDiv.style.fontSize = "32px";
-        countdownDiv.style.fontWeight = "bold";
-        countdownDiv.style.padding = "20px 0";
-        countdownDiv.style.textAlign = "center";
-        countdownDiv.textContent = "COUNTDOWN";
-        countdownDiv.style.backgroundColor = "white";
-        
-        // Insert after the dashboard header
-        dashboardHeader.parentNode?.insertBefore(countdownDiv, dashboardHeader.nextSibling);
-        return true;
-    } else {
-        console.log("Dashboard header not found");
-        return false;
-    }
-}
+function getUpcomingAssignment(ics_data: Record<string, { Date: string | null, Class: string }>): { name: string, date: string } | null {
+    const today = new Date();
+    let closestDate: Date | null = null;
+    let closestAssignment = "";
 
-function observeDOMChanges() {
-    console.log("Setting up DOM observer...");
-    
-    const observer = new MutationObserver((mutations, obs) => {
-        console.log("DOM changes detected:", mutations.length);
+    for (const assignment in ics_data) {
+        const dateStr = ics_data[assignment].Date;
+        if (!dateStr) continue;
 
-        if (addCountdownElement()) {
-            obs.disconnect();  
-            console.log("Observer disconnected after adding countdown.");
+        // Convert ICS date format to JS Date object
+        const eventDate = parseICSDate(dateStr);
+        if (!eventDate || eventDate < today) continue;
+
+        // Find the closest upcoming assignment
+        if (!closestDate || eventDate < closestDate) {
+            closestDate = eventDate;
+            closestAssignment = assignment;
         }
-    });
+    }
 
-    observer.observe(document.body, { 
-        childList: true, 
-        subtree: true,
-        characterData: true,
-        attributes: true
-    });
+    return closestDate ? { name: closestAssignment, date: closestDate.toISOString() } : null;
 }
 
+function parseICSDate(icsDate: string): Date | null {
+    let match = null;
+
+    // Full timestamp: YYYYMMDDTHHMMSSZ
+    match = icsDate.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z?$/);
+    if (match) {
+        const [, year, month, day, hours, minutes, seconds] = match.map(Number);
+        return new Date(Date.UTC(year, month - 1, day, hours, minutes, seconds));
+    }
+
+    // Timestamp without seconds: YYYYMMDDTHHMMZ
+    match = icsDate.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})Z?$/);
+    if (match) {
+        const [, year, month, day, hours, minutes] = match.map(Number);
+        return new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
+    }
+
+    // Date only (default to midnight UTC): YYYYMMDD
+    match = icsDate.match(/^(\d{4})(\d{2})(\d{2})$/);
+    if (match) {
+        const [, year, month, day] = match.map(Number);
+        return new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+    }
+
+    console.error("Invalid date format:", icsDate);
+    return null;
+}
+
+function startLiveCountdown(targetDate: string) {
+    const countdownDiv = document.createElement("div");
+    countdownDiv.className = "countdown-container";
+    countdownDiv.style.fontSize = "32px";
+    countdownDiv.style.fontWeight = "bold";
+    countdownDiv.style.padding = "20px 0";
+    countdownDiv.style.textAlign = "center";
+    countdownDiv.style.backgroundColor = "white";
+
+    const dashboardHeader = document.querySelector(".ic-Dashboard-header__layout");
+    if (!dashboardHeader) {
+        console.log("Dashboard header not found");
+        return;
+    }
+    dashboardHeader.parentNode?.insertBefore(countdownDiv, dashboardHeader.nextSibling);
+
+    function updateCountdown() {
+        const eventDate = new Date(targetDate);
+        const currentDate = new Date();
+        const timeDiff = eventDate.getTime() - currentDate.getTime();
+
+        if (timeDiff <= 0) {
+            countdownDiv.textContent = "Assignment is due!";
+            return;
+        }
+
+        const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+
+        countdownDiv.textContent = `Time Left: ${days}d ${hours}h ${minutes}m ${seconds}s`;
+    }
+
+    updateCountdown(); // Initial call
+    setInterval(updateCountdown, 1000); // Update every second
+}
 
 async function main() {
     console.log("Main function running...");
-    
-    // Set up the observer for future changes
-    observeDOMChanges();
-    
+
     // Fetch and parse ICS
     console.log("Fetching ICS data...");
     const usr_feed_id: string | null = getUsrID();
@@ -154,9 +190,41 @@ async function main() {
     }
 
     if (usr_ics_url) {
-        fetchAndParseICS(usr_ics_url).then(ics_data => {
-            console.log("Parsed ICS data:", ics_data);
-        });
+        async function main() {
+            console.log("Main function running...");
+        
+            const usr_feed_id: string | null = getUsrID();
+            if (!usr_feed_id) {
+                console.error("Cannot retrieve the ICS calendar feed URL.");
+                return;
+            }
+        
+            const usr_ics_url = `https://canvas.oregonstate.edu/feeds/calendars/${usr_feed_id}.ics`;
+            
+            fetchAndParseICS(usr_ics_url).then(ics_data => {
+                console.log("Parsed ICS data:", ics_data);
+                
+                const upcomingAssignment = getUpcomingAssignment(ics_data);
+                
+                if (!upcomingAssignment) {
+                    console.log("No upcoming assignments found.");
+                    return;
+                }
+        
+                console.log(`Next assignment: ${upcomingAssignment.name} due on ${upcomingAssignment.date}`);
+        
+                // Start live countdown
+                startLiveCountdown(upcomingAssignment.date);
+            });
+        }
+        
+        // Run when the page loads
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", main);
+        } else {
+            main();
+        }
+               
     } else {
         console.error("Cannot retrieve the ICS calendar feed url automatically.");
     }

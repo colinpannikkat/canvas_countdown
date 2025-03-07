@@ -7,10 +7,10 @@
       "default_popup": "index.html"
     },
     "permissions": ["scripting", "activeTab"],
-    "host_permissions": ["https://canvas.oregonstate.edu/*"],
+    "host_permissions": ["https://canvas.oregonstate.edu/"],
     "content_scripts": [
         {
-            "matches": ["https://canvas.oregonstate.edu/*"],
+            "matches": ["https://canvas.oregonstate.edu/"],
             "js": ["content.js"],
             "run_at": "document_idle"
         }

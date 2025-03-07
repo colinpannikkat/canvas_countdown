@@ -115,25 +115,28 @@ function getUpcomingAssignment(ics_data: Record<string, { Date: string | null, C
 function parseICSDate(icsDate: string): Date | null {
     let match = null;
 
+    // Timezone offset for PST (Pacific Standard Time)
+    const PST_OFFSET = -8 * 60 * 60 * 1000; // UTC-8 hours in milliseconds
+
     // Full timestamp: YYYYMMDDTHHMMSSZ
     match = icsDate.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z?$/);
     if (match) {
         const [, year, month, day, hours, minutes, seconds] = match.map(Number);
-        return new Date(Date.UTC(year, month - 1, day, hours, minutes, seconds));
+        return new Date(Date.UTC(year, month - 1, day, hours, minutes, seconds) + PST_OFFSET);
     }
 
     // Timestamp without seconds: YYYYMMDDTHHMMZ
     match = icsDate.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})Z?$/);
     if (match) {
         const [, year, month, day, hours, minutes] = match.map(Number);
-        return new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
+        return new Date(Date.UTC(year, month - 1, day, hours, minutes, 0) + PST_OFFSET);
     }
 
-    // Date only (default to midnight UTC): YYYYMMDD
+    // Date only (default to **midnight PST**): YYYYMMDD
     match = icsDate.match(/^(\d{4})(\d{2})(\d{2})$/);
     if (match) {
         const [, year, month, day] = match.map(Number);
-        return new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+        return new Date(Date.UTC(year, month - 1, day, 7, 59, 0)); // 8 AM UTC = Midnight PST
     }
 
     console.error("Invalid date format:", icsDate);

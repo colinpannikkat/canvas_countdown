@@ -32,9 +32,9 @@ class ICSParser {
                 assignmentName = cleanAssignmentName;
                 let date: string | null = null;
     
-                if (item.includes('DTSTART;')) {
+                if (item.includes('DTSTART;')) { // purely a date with default due date at 11:59pm, #DTSTART;VALUE=DATE;VALUE=DATE:20250322
                     date = this.cleanString(item.split("VALUE=DATE:")[1].split("CLASS:")[0], "\r", "\n");
-                } else if (item.includes('DTSTART:')) {
+                } else if (item.includes('DTSTART:')) { // includes date and time, #DTSTART:20250317T183000Z\nDTEND:20250317T183000Z
                     date = this.cleanString(item.split("DTSTART:")[1].split("DTEND:")[0], "\r", "\n");
                 }
     
@@ -142,7 +142,7 @@ function parseICSDate(icsDate: string): Date | null {
     match = icsDate.match(/^(\d{4})(\d{2})(\d{2})$/);
     if (match) {
         const [, year, month, day] = match.map(Number);
-        return new Date(Date.UTC(year, month - 1, day, 7, 59, 0)); // 8 AM UTC = Midnight PST
+        return new Date(Date.UTC(year, month - 1, day - 1, 7, 59, 0)); // 8 AM UTC = Midnight PST
     }
 
     console.error("Invalid date format:", icsDate);

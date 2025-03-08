@@ -2,7 +2,7 @@ console.log("Extension script running...");
 
 class ICSParser {
     /**
-     * Takes in ics file and outputs it into dictionary format
+     * Takes in ics string and outputs it to dictionary format.
      * 
      * {
      *     AssignmentName : 

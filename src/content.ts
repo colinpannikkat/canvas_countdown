@@ -47,7 +47,6 @@ class ICSParser {
         return event;
     }
     
-
     cleanString(string: string, ...args: string[]): string {
         for (const str of args) {
             let splitString = string.split(str);
@@ -96,7 +95,7 @@ function getUsrID(): string | null {
 }
 
 function getUpcomingAssignment(ics_data: Record<string, { Date: string | null, Class: string }>): { name: string, date: string } | null {
-    const today = new Date();
+    const now = new Date();
     let closestDate: Date | null = null;
     let closestAssignment = "";
 
@@ -106,7 +105,11 @@ function getUpcomingAssignment(ics_data: Record<string, { Date: string | null, C
 
         // Convert ICS date format to JS Date object
         const eventDate = parseICSDate(dateStr);
-        if (!eventDate || eventDate < today) continue;
+        if (!eventDate) continue;
+        
+        // Only consider assignments that are due in the future
+        const timeDiff = eventDate.getTime() - now.getTime();
+        if (timeDiff < 0) continue; // Skip if in the past
 
         // Find the closest upcoming assignment
         if (!closestDate || eventDate < closestDate) {
@@ -115,48 +118,77 @@ function getUpcomingAssignment(ics_data: Record<string, { Date: string | null, C
         }
     }
 
-    return closestDate ? { name: closestAssignment, date: closestDate.toISOString() } : null;
+    return closestDate ? { 
+        name: closestAssignment, 
+        date: closestDate.toISOString()
+    } : null;
 }
 
 function parseICSDate(icsDate: string): Date | null {
     let match = null;
 
-    // Timezone offset for PST (Pacific Standard Time)
-    const PST_OFFSET = -8 * 60 * 60 * 1000; // UTC-8 hours in milliseconds
+    try {
+        // Full timestamp: YYYYMMDDTHHMMSSZ (Z indicates UTC)
+        match = icsDate.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z?$/);
+        if (match) {
+            const [, year, month, day, hours, minutes, seconds] = match.map(Number);
+            // If Z is present, it's UTC time and needs conversion to local time
+            if (icsDate.endsWith('Z')) {
+                return new Date(Date.UTC(year, month - 1, day, hours, minutes, seconds));
+            } else {
+                // If no Z, assume it's already in local time
+                return new Date(year, month - 1, day, hours, minutes, seconds);
+            }
+        }
 
-    // Full timestamp: YYYYMMDDTHHMMSSZ
-    match = icsDate.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z?$/);
-    if (match) {
-        const [, year, month, day, hours, minutes, seconds] = match.map(Number);
-        return new Date(Date.UTC(year, month - 1, day, hours, minutes, seconds) + PST_OFFSET);
+        // Timestamp without seconds: YYYYMMDDTHHMMZ
+        match = icsDate.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})Z?$/);
+        if (match) {
+            const [, year, month, day, hours, minutes] = match.map(Number);
+            if (icsDate.endsWith('Z')) {
+                return new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
+            } else {
+                return new Date(year, month - 1, day, hours, minutes, 0);
+            }
+        }
+
+        // Date only: YYYYMMDD (Canvas typically sets these to 11:59 PM)
+        match = icsDate.match(/^(\d{4})(\d{2})(\d{2})$/);
+        if (match) {
+            const [, year, month, day] = match.map(Number);
+            // Set to 11:59 PM local time for the day
+            return new Date(year, month - 1, day, 23, 59, 0);
+        }
+
+        console.error("Invalid date format:", icsDate);
+        return null;
+    } catch (error) {
+        console.error("Error parsing date:", error);
+        return null;
     }
-
-    // Timestamp without seconds: YYYYMMDDTHHMMZ
-    match = icsDate.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})Z?$/);
-    if (match) {
-        const [, year, month, day, hours, minutes] = match.map(Number);
-        return new Date(Date.UTC(year, month - 1, day, hours, minutes, 0) + PST_OFFSET);
-    }
-
-    // Date only (default to **midnight PST**): YYYYMMDD
-    match = icsDate.match(/^(\d{4})(\d{2})(\d{2})$/);
-    if (match) {
-        const [, year, month, day] = match.map(Number);
-        return new Date(Date.UTC(year, month - 1, day, 7, 59, 0)); // 8 AM UTC = Midnight PST
-    }
-
-    console.error("Invalid date format:", icsDate);
-    return null;
 }
 
-function startLiveCountdown(targetDate: string) {
+function startLiveCountdown(targetDate: string, assignmentName: string) {
     const countdownDiv = document.createElement("div");
     countdownDiv.className = "countdown-container";
-    countdownDiv.style.fontSize = "32px";
+    countdownDiv.style.fontSize = "24px";
     countdownDiv.style.fontWeight = "bold";
-    countdownDiv.style.padding = "20px 0";
+    countdownDiv.style.padding = "15px";
+    countdownDiv.style.margin = "10px 0";
     countdownDiv.style.textAlign = "center";
-    countdownDiv.style.backgroundColor = "white";
+    countdownDiv.style.backgroundColor = "#f5f5f5";
+    countdownDiv.style.borderRadius = "5px";
+    countdownDiv.style.border = "1px solid #ddd";
+
+    const assignmentDisplay = document.createElement("div");
+    assignmentDisplay.style.fontSize = "18px";
+    assignmentDisplay.style.marginBottom = "5px";
+    assignmentDisplay.style.color = "#444";
+    assignmentDisplay.textContent = `Next Due: ${assignmentName}`;
+    countdownDiv.appendChild(assignmentDisplay);
+
+    const timeDisplay = document.createElement("div");
+    countdownDiv.appendChild(timeDisplay);
 
     const dashboardHeader = document.querySelector(".ic-Dashboard-header__layout");
     if (!dashboardHeader) {
@@ -171,7 +203,8 @@ function startLiveCountdown(targetDate: string) {
         const timeDiff = eventDate.getTime() - currentDate.getTime();
 
         if (timeDiff <= 0) {
-            countdownDiv.textContent = "Assignment is due!";
+            timeDisplay.textContent = "DUE NOW!";
+            timeDisplay.style.color = "red";
             return;
         }
 
@@ -180,7 +213,7 @@ function startLiveCountdown(targetDate: string) {
         const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
 
-        countdownDiv.textContent = `Time Left: ${days}d ${hours}h ${minutes}m ${seconds}s`;
+        timeDisplay.textContent = `Time Left: ${days}d ${hours}h ${minutes}m ${seconds}s`;
     }
 
     updateCountdown(); // Initial call
@@ -191,52 +224,30 @@ async function main() {
     console.log("Main function running...");
 
     // Fetch and parse ICS
-    console.log("Fetching ICS data...");
     const usr_feed_id: string | null = getUsrID();
-    let usr_ics_url: string | null = null;
-    if (usr_feed_id) {
-        usr_ics_url = `https://canvas.oregonstate.edu/feeds/calendars/${usr_feed_id}.ics`;
+    if (!usr_feed_id) {
+        console.error("Cannot retrieve the ICS calendar feed URL.");
+        return;
     }
 
-    if (usr_ics_url) {
-        async function main() {
-            console.log("Main function running...");
+    const usr_ics_url = `https://canvas.oregonstate.edu/feeds/calendars/${usr_feed_id}.ics`;
+    
+    fetchAndParseICS(usr_ics_url).then(ics_data => {
+        console.log("Parsed ICS data:", ics_data);
         
-            const usr_feed_id: string | null = getUsrID();
-            if (!usr_feed_id) {
-                console.error("Cannot retrieve the ICS calendar feed URL.");
-                return;
-            }
+        const upcomingAssignment = getUpcomingAssignment(ics_data);
         
-            const usr_ics_url = `https://canvas.oregonstate.edu/feeds/calendars/${usr_feed_id}.ics`;
-            
-            fetchAndParseICS(usr_ics_url).then(ics_data => {
-                console.log("Parsed ICS data:", ics_data);
-                
-                const upcomingAssignment = getUpcomingAssignment(ics_data);
-                
-                if (!upcomingAssignment) {
-                    console.log("No upcoming assignments found.");
-                    return;
-                }
-        
-                console.log(`Next assignment: ${upcomingAssignment.name} due on ${upcomingAssignment.date}`);
-        
-                // Start live countdown
-                startLiveCountdown(upcomingAssignment.date);
-            });
+        if (!upcomingAssignment) {
+            console.log("No upcoming assignments found.");
+            return;
         }
-        
-        // Run when the page loads
-        if (document.readyState === "loading") {
-            document.addEventListener("DOMContentLoaded", main);
-        } else {
-            main();
-        }
-               
-    } else {
-        console.error("Cannot retrieve the ICS calendar feed url automatically.");
-    }
+
+        console.log(`Next assignment: ${upcomingAssignment.name}`);
+        console.log(`Due on: ${upcomingAssignment.date}`);
+
+        // Start live countdown
+        startLiveCountdown(upcomingAssignment.date, upcomingAssignment.name);
+    });
 }
 
 // Run when the page loads

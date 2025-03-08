@@ -142,7 +142,7 @@ function parseICSDate(icsDate: string): Date | null {
     match = icsDate.match(/^(\d{4})(\d{2})(\d{2})$/);
     if (match) {
         const [, year, month, day] = match.map(Number);
-        return new Date(Date.UTC(year, month - 1, day - 1, 7, 59, 0)); // 8 AM UTC = Midnight PST
+        return new Date(Date.UTC(year, month - 1, day, 7, 59, 0)); // 8 AM UTC = Midnight PST
     }
 
     console.error("Invalid date format:", icsDate);
